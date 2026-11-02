@@ -41,6 +41,11 @@ mkdir -p export
 godot --headless --export-release "Web" export/index.html
 ```
 
+## License
+
+Bug Crush is MIT licensed — see `LICENSE`. Anyone can use, remix, or share
+it, with credit.
+
 ## Credits
 
 - Font: Luckiest Guy, SIL Open Font License.
