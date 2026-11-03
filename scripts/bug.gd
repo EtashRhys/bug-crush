@@ -1,7 +1,8 @@
 extends Control
 
 # One cartoon bug, drawn entirely in code (no image files needed).
-# bug_type: 0 ladybug, 1 bee, 2 ant, 3 caterpillar, 4 butterfly, 5 spider.
+# bug_type: 0 ladybug, 1 bee, 2 ant, 3 caterpillar, 4 butterfly, 5 spider,
+# 6 golden scarab (bomb: tap to detonate, never matches).
 
 var bug_type: int = 0
 
@@ -22,6 +23,8 @@ func _draw() -> void:
 			_draw_butterfly(c, r)
 		5:
 			_draw_spider(c, r)
+		6:
+			_draw_scarab(c, r)
 
 
 func _eye(pos: Vector2, r: float) -> void:
@@ -92,6 +95,19 @@ func _draw_butterfly(c: Vector2, r: float) -> void:
 	draw_line(c + Vector2(0, -r * 0.7), c + Vector2(r * 0.4, -r * 1.1), Color(0.2, 0.15, 0.25), r * 0.08)
 	_eye(c + Vector2(-r * 0.12, -r * 0.6), r * 0.1)
 	_eye(c + Vector2(r * 0.12, -r * 0.6), r * 0.1)
+
+
+func _draw_scarab(c: Vector2, r: float) -> void:
+	draw_circle(c, r * 1.15, Color(1.0, 0.8, 0.1, 0.35))
+	_ellipse(c, r * 0.95, r * 0.8, Color(0.85, 0.65, 0.1))
+	_ellipse(c, r * 0.7, r * 0.6, Color(1.0, 0.85, 0.25))
+	draw_line(c + Vector2(0, -r * 0.7), c + Vector2(0, r * 0.7), Color(0.6, 0.45, 0.05), r * 0.12)
+	draw_circle(c + Vector2(0, -r * 0.95), r * 0.35, Color(0.7, 0.5, 0.08))
+	_eye(c + Vector2(-r * 0.15, -r * 0.95), r * 0.1)
+	_eye(c + Vector2(r * 0.15, -r * 0.95), r * 0.1)
+	for s in [-1, 1]:
+		draw_line(c + Vector2(s * r * 0.7, -r * 0.2), c + Vector2(s * r * 1.2, -r * 0.4), Color(0.6, 0.45, 0.05), r * 0.08)
+		draw_line(c + Vector2(s * r * 0.7, r * 0.2), c + Vector2(s * r * 1.2, r * 0.4), Color(0.6, 0.45, 0.05), r * 0.08)
 
 
 func _draw_spider(c: Vector2, r: float) -> void:

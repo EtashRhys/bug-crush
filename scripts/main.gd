@@ -8,6 +8,9 @@ extends Control
 const COLS := 8
 const ROWS := 8
 const NTYPES := 6
+const SCARAB := 6
+const SCARAB_EVERY := 5000
+const SCARAB_BONUS := 250
 
 var BugScript := preload("res://scripts/bug.gd")
 
@@ -39,6 +42,7 @@ var rotate_sub: Label
 var game_font: Font
 var sfx: AudioStreamPlayer
 var current_level := 1
+var next_scarab_at := SCARAB_EVERY
 var _play_beaconed := false
 var banner_label: Label
 var title_col := Color(0.65, 0.95, 0.7)
@@ -455,6 +459,12 @@ func _drag(pos: Vector2) -> void:
 	var target := press_cell + dir
 	if target.x < 0 or target.x >= COLS or target.y < 0 or target.y >= ROWS:
 		return
+	if grid[press_cell.y][press_cell.x] != null and grid[press_cell.y][press_cell.x].bug_type == SCARAB:
+		dragged = true
+		press_active = false
+		_deselect()
+		_detonate(press_cell)
+		return
 	dragged = true
 	press_active = false
 	_do_swap(press_cell, target)
@@ -473,6 +483,10 @@ func _tap(cell_pos: Vector2i) -> void:
 	if busy:
 		return
 	if grid[cell_pos.y][cell_pos.x] == null:
+		return
+	if grid[cell_pos.y][cell_pos.x].bug_type == SCARAB:
+		_deselect()
+		_detonate(cell_pos)
 		return
 	if selected.x < 0:
 		_select(cell_pos)
@@ -572,6 +586,9 @@ func _resolve() -> void:
 			current_level = nl
 			_beacon("level", nl)
 			await _celebrate_level(nl)
+	while score >= next_scarab_at:
+		_spawn_scarab()
+		next_scarab_at += SCARAB_EVERY
 	msg_label.visible = false
 	busy = false
 
@@ -588,7 +605,7 @@ func _find_matches() -> Array:
 		var c := 0
 		while c < COLS:
 			var bug = grid[r][c]
-			if bug == null:
+			if bug == null or bug.bug_type == SCARAB:
 				c += 1
 				continue
 			var t: int = bug.bug_type
@@ -602,7 +619,7 @@ func _find_matches() -> Array:
 		var r := 0
 		while r < ROWS:
 			var bug = grid[r][c]
-			if bug == null:
+			if bug == null or bug.bug_type == SCARAB:
 				r += 1
 				continue
 			var t: int = bug.bug_type
@@ -622,7 +639,10 @@ func _max_run() -> int:
 		var prev := -1
 		for c in COLS:
 			var bug = grid[r][c]
-			if bug != null and bug.bug_type == prev:
+			if bug != null and bug.bug_type == SCARAB:
+				run = 0
+				prev = -1
+			elif bug != null and bug.bug_type == prev:
 				run += 1
 			elif bug != null:
 				run = 1
@@ -636,7 +656,10 @@ func _max_run() -> int:
 		var prev := -1
 		for r in ROWS:
 			var bug = grid[r][c]
-			if bug != null and bug.bug_type == prev:
+			if bug != null and bug.bug_type == SCARAB:
+				run = 0
+				prev = -1
+			elif bug != null and bug.bug_type == prev:
 				run += 1
 			elif bug != null:
 				run = 1
@@ -698,6 +721,61 @@ func _celebrate_level(lvl: int) -> void:
 	tw2.tween_property(fly, "modulate", Color(1, 1, 1, 0), 0.5)
 	await tw2.finished
 	fly.queue_free()
+
+
+func _spawn_scarab() -> void:
+	_stop_shimmy()
+	var cells: Array = []
+	for r in ROWS:
+		for c in COLS:
+			var b = grid[r][c]
+			if b != null and b.bug_type != SCARAB:
+				cells.append(Vector2i(c, r))
+	if cells.is_empty():
+		return
+	var cell_pos: Vector2i = cells[randi() % cells.size()]
+	var old = grid[cell_pos.y][cell_pos.x]
+	old.queue_free()
+	var bug := _make_bug(SCARAB, cell_pos.y, cell_pos.x)
+	grid[cell_pos.y][cell_pos.x] = bug
+	bug.scale = Vector2(0.2, 0.2)
+	var tw := create_tween()
+	tw.tween_property(bug, "scale", Vector2(1.15, 1.15), 0.18)
+	tw.tween_property(bug, "scale", Vector2(1, 1), 0.15)
+	_show_msg("GOLDEN SCARAB! Tap it to detonate!")
+
+
+func _detonate(cell_pos: Vector2i) -> void:
+	if busy:
+		return
+	busy = true
+	_deselect()
+	_stop_shimmy()
+	var cells: Array = []
+	for r in range(max(0, cell_pos.y - 1), min(ROWS, cell_pos.y + 2)):
+		for c in range(max(0, cell_pos.x - 1), min(COLS, cell_pos.x + 2)):
+			if grid[r][c] != null:
+				cells.append(Vector2i(c, r))
+	var gained := cells.size() * 10 + SCARAB_BONUS
+	score += gained
+	score_label.text = "Score: %d" % score
+	if score > best:
+		best = score
+		best_label.text = "Best: %d" % best
+		_save_best()
+	sfx.stream = smash_stream
+	sfx.play()
+	var shk := create_tween()
+	shk.tween_property(self, "position", Vector2(14, -10), 0.05)
+	shk.tween_property(self, "position", Vector2(-12, 8), 0.05)
+	shk.tween_property(self, "position", Vector2(10, -6), 0.05)
+	shk.tween_property(self, "position", Vector2.ZERO, 0.05)
+	_show_msg("SCARAB BOOM! +%d" % gained)
+	_beacon("bomb")
+	await _pop(cells)
+	await _gravity()
+	await _resolve()
+	busy = false
 
 
 func _start_shimmy() -> void:

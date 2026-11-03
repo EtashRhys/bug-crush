@@ -25,6 +25,11 @@ Play it live: https://ucii.sportgen-ai.com/bug-crush/
   the same board comes back when you rotate, no progress lost.
 - Share buttons below the board: Email Score, and Post to X (shares a
   screenshot of the board plus your score).
+- Golden scarab bomb: every 5,000 points a random bug turns into a golden
+  scarab. Tap it (or drag from it) to detonate a 3x3 blast — every bug in
+  the radius pops for normal points plus a +250 bomb bonus, then gravity
+  refills and cascades resolve. Scarabs never match and can't be swapped;
+  Shuffle just relocates them.
 
 ## Build
 
@@ -51,8 +56,9 @@ and bot user-agents are filtered out. Counts live in `tracker/track.py`
 nginx as `/bug-crush-track/`).
 
 What it counts, per day and in total: game loads, plays (sessions with at
-least one accepted swap), level-ups (per level number), and share taps
-(split email vs X). Stats page: https://ucii.sportgen-ai.com/bug-crush-track/stats
+least one accepted swap), level-ups (per level number), share taps
+(split email vs X), and golden scarab detonations. Stats page:
+https://ucii.sportgen-ai.com/bug-crush-track/stats
 
 ## License
 

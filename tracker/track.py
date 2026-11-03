@@ -6,6 +6,7 @@ Counts, per day and in total:
   plays  - sessions with at least one accepted swap
   levels - level-ups / bonus splats, counted per level number
   shares - share taps, split email vs X
+  bombs  - golden scarab detonations
 
 Deliberately NOT collected: IPs, user-agent strings, cookies,
 fingerprints, scores, or anything identifying a player. Bot
@@ -39,7 +40,7 @@ LOCK = threading.Lock()
 
 def blank_day():
     return {"loads": 0, "plays": 0, "shares_email": 0, "shares_x": 0,
-            "levels": {}}
+            "bombs": 0, "levels": {}}
 
 
 def load_data():
@@ -48,6 +49,10 @@ def load_data():
             data = json.load(f)
         data.setdefault("totals", blank_day())
         data.setdefault("days", {})
+        # buckets written before the bombs counter existed lack the key
+        data["totals"].setdefault("bombs", 0)
+        for day in data["days"].values():
+            day.setdefault("bombs", 0)
         return data
     except (OSError, ValueError):
         return {"totals": blank_day(), "days": {}}
@@ -75,6 +80,8 @@ def record(event, level=None, kind=None):
                 bucket["shares_email"] += 1
             elif event == "share" and kind == "x":
                 bucket["shares_x"] += 1
+            elif event == "bomb":
+                bucket["bombs"] += 1
         save_data(data)
 
 
@@ -98,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             body = {}
         event = body.get("event")
-        if event in ("load", "play", "level", "share") and not self._is_bot():
+        if event in ("load", "play", "level", "share", "bomb") and not self._is_bot():
             record(event, body.get("level"), body.get("kind"))
         self.send_response(204)
         self.end_headers()
@@ -125,9 +132,10 @@ class Handler(BaseHTTPRequestHandler):
                                for k, v in sorted(d["levels"].items(),
                                                   key=lambda kv: int(kv[0])))
                 rows.append("<tr><td>%s</td><td>%d</td><td>%d</td>"
-                            "<td>%d</td><td>%d</td><td>%s</td></tr>" % (
+                            "<td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>" % (
                                 day, d["loads"], d["plays"],
-                                d["shares_email"], d["shares_x"], lv or "-"))
+                                d["shares_email"], d["shares_x"],
+                                d.get("bombs", 0), lv or "-"))
             tot_lv = ", ".join("L%s: %d" % (k, v)
                                for k, v in sorted(totals["levels"].items(),
                                                   key=lambda kv: int(kv[0])))
@@ -141,14 +149,16 @@ padding:6px 10px}h1{color:#7CFC00}</style></head><body>
 <p>Aggregate only. No IPs, cookies, or player identities are collected.</p>
 <h2>Totals</h2>
 <p>Loads: <b>%d</b> &nbsp; Plays: <b>%d</b> &nbsp;
-Shares by email: <b>%d</b> &nbsp; Shares to X: <b>%d</b><br>
+Shares by email: <b>%d</b> &nbsp; Shares to X: <b>%d</b> &nbsp;
+Bombs: <b>%d</b><br>
 Level-ups: %s</p>
 <h2>By day (last 30)</h2>
 <table><tr><th>Day</th><th>Loads</th><th>Plays</th>
-<th>Email shares</th><th>X shares</th><th>Level-ups</th></tr>
+<th>Email shares</th><th>X shares</th><th>Bombs</th><th>Level-ups</th></tr>
 %s</table></body></html>""" % (
                 totals["loads"], totals["plays"],
                 totals["shares_email"], totals["shares_x"],
+                totals.get("bombs", 0),
                 tot_lv or "-", "".join(rows))
             payload = html.encode()
             self.send_response(200)
