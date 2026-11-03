@@ -52,3 +52,4 @@ it, with credit.
 - Sounds: synthesized, no external audio files.
 - Bugs: ladybug, bee, ant, caterpillar, butterfly, spider — all drawn in
   code, no image files.
+- Loading screen + tab icon: custom Bug Crush logo art (splash.png, icon.png).
