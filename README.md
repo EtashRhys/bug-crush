@@ -53,3 +53,6 @@ it, with credit.
 - Bugs: ladybug, bee, ant, caterpillar, butterfly, spider — all drawn in
   code, no image files.
 - Loading screen + tab icon: custom Bug Crush logo art (splash.png, icon.png).
+- Loading screen animation: neon-purple pulsing title + ladybug crawl + zap,
+  5s APNG loop — see loading-screen/ (export's index.png is replaced
+  with it after every export).
