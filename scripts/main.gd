@@ -39,6 +39,7 @@ var rotate_sub: Label
 var game_font: Font
 var sfx: AudioStreamPlayer
 var current_level := 1
+var _play_beaconed := false
 var banner_label: Label
 var title_col := Color(0.65, 0.95, 0.7)
 var title_bug_active := false
@@ -107,6 +108,26 @@ class SelRing extends Control:
 		draw_arc(size / 2.0, size.x * 0.46, 0, TAU, 40, Color(1, 0.85, 0.1), 6.0)
 
 
+# Aggregate-only popularity counting: one fire-and-forget beacon per
+# event to /bug-crush-track/beacon (same origin, no cookies, no IDs,
+# no scores). If the tracker is down the game plays on unaffected.
+func _beacon(event: String, level: int = -1, kind: String = "") -> void:
+	if not OS.has_feature("web"):
+		return
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(func(_r, _c, _h, _b): http.queue_free())
+	var body := {"event": event}
+	if level >= 0:
+		body["level"] = level
+	if kind != "":
+		body["kind"] = kind
+	if http.request("/bug-crush-track/beacon",
+			["Content-Type: application/json"],
+			HTTPClient.METHOD_POST, JSON.stringify(body)) != OK:
+		http.queue_free()
+
+
 func _ready() -> void:
 	game_font = load("res://fonts/LuckiestGuy-Regular.ttf")
 	_init_share_js()
@@ -123,6 +144,7 @@ func _ready() -> void:
 	title_timer.timeout.connect(_on_title_bug)
 	add_child(title_timer)
 	_update_orientation()
+	_beacon("load")
 	queue_redraw()
 
 
@@ -255,6 +277,7 @@ func _on_email_share() -> void:
 	var subject := "My Bug Crush score!".uri_encode()
 	var body := ("I scored %d in Bug Crush (best: %d)! Can you beat it? Play here: https://ucii.sportgen-ai.com/bug-crush/" % [score, best]).uri_encode()
 	JavaScriptBridge.eval("window.location.href = 'mailto:?subject=%s&body=%s';" % [subject, body])
+	_beacon("share", -1, "email")
 
 
 func _on_x_share() -> void:
@@ -264,6 +287,7 @@ func _on_x_share() -> void:
 	var b64 := Marshalls.raw_to_base64(img.save_png_to_buffer())
 	var text := _score_text()
 	JavaScriptBridge.eval("window.__bugcrush_share('%s', 'bug-crush-score.png', `%s`);" % [b64, text])
+	_beacon("share", -1, "x")
 
 
 func _update_orientation() -> void:
@@ -509,6 +533,9 @@ func _do_swap(a: Vector2i, b: Vector2i) -> void:
 		await tw2.finished
 		busy = false
 		return
+	if not _play_beaconed:
+		_play_beaconed = true
+		_beacon("play")
 	await _resolve()
 
 
@@ -543,6 +570,7 @@ func _resolve() -> void:
 		var nl := _level_for_score(score)
 		if nl > current_level:
 			current_level = nl
+			_beacon("level", nl)
 			await _celebrate_level(nl)
 	msg_label.visible = false
 	busy = false

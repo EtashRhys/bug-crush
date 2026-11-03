@@ -41,6 +41,19 @@ mkdir -p export
 godot --headless --export-release "Web" export/index.html
 ```
 
+## Tracking
+
+Aggregate-only popularity counting, no personal data: the game sends one
+fire-and-forget beacon per event to `/bug-crush-track/beacon` (same origin).
+No IPs, cookies, fingerprints, scores, or player identities are collected,
+and bot user-agents are filtered out. Counts live in `tracker/track.py`
+(stdlib Python, systemd service on the production box, proxied through
+nginx as `/bug-crush-track/`).
+
+What it counts, per day and in total: game loads, plays (sessions with at
+least one accepted swap), level-ups (per level number), and share taps
+(split email vs X). Stats page: https://ucii.sportgen-ai.com/bug-crush-track/stats
+
 ## License
 
 Bug Crush is MIT licensed — see `LICENSE`. Anyone can use, remix, or share
