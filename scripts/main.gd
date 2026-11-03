@@ -679,11 +679,13 @@ func _start_shimmy() -> void:
 		return
 	var t: int = types[randi() % types.size()]
 	var group: Array = []
+	var origs: Array = []
 	for r in ROWS:
 		for c in COLS:
 			var b = grid[r][c]
 			if b != null and b.bug_type == t:
 				group.append(b)
+				origs.append(b.position)
 	if group.is_empty():
 		return
 	shimmy_active = true
@@ -692,12 +694,15 @@ func _start_shimmy() -> void:
 	tw.finished.connect(_on_shimmy_finished)
 	for i in range(6):
 		tw.set_parallel(true)
-		for b in group:
-			tw.tween_property(b, "rotation", 0.22 if i % 2 == 0 else -0.22, 0.07)
+		for j in group.size():
+			var b = group[j]
+			tw.tween_property(b, "rotation", 0.45 if i % 2 == 0 else -0.45, 0.09)
+			tw.tween_property(b, "position", Vector2(origs[j].x, origs[j].y - 12) if i % 2 == 0 else origs[j], 0.09)
 		tw.set_parallel(false)
 	tw.set_parallel(true)
-	for b in group:
-		tw.tween_property(b, "rotation", 0.0, 0.05)
+	for j in group.size():
+		tw.tween_property(group[j], "rotation", 0.0, 0.05)
+		tw.tween_property(group[j], "position", origs[j], 0.05)
 
 
 func _on_shimmy_finished() -> void:
@@ -716,6 +721,7 @@ func _stop_shimmy() -> void:
 				var b = grid[r][c]
 				if b != null:
 					b.rotation = 0.0
+					b.position = _cell_pos(r, c)
 
 
 func _on_title_bug() -> void:
