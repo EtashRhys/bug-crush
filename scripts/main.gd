@@ -43,6 +43,10 @@ var banner_label: Label
 var title_col := Color(0.65, 0.95, 0.7)
 var title_bug_active := false
 var title_pulse: Tween
+var idle_timer := 0.0
+var shimmy_tween: Tween
+var shimmy_active := false
+const IDLE_AFTER := 3.0
 var smash_stream := preload("res://audio/smash.wav")
 const THRESHOLDS := [1500, 4000, 7500, 12000]
 const THEMES := [
@@ -370,7 +374,19 @@ func _cell_at(pos: Vector2) -> Vector2i:
 	return Vector2i(c, r)
 
 
+func _process(delta: float) -> void:
+	if busy or shimmy_active or size.x > size.y:
+		return
+	idle_timer += delta
+	if idle_timer >= IDLE_AFTER:
+		_start_shimmy()
+
+
 func _input(event: InputEvent) -> void:
+	var is_press: bool = (event is InputEventScreenTouch and event.pressed) or event is InputEventScreenDrag or (event is InputEventMouseButton and event.pressed)
+	if is_press:
+		_stop_shimmy()
+		idle_timer = 0.0
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_press(event.position)
@@ -649,6 +665,57 @@ func _celebrate_level(lvl: int) -> void:
 	tw2.tween_property(fly, "modulate", Color(1, 1, 1, 0), 0.5)
 	await tw2.finished
 	fly.queue_free()
+
+
+func _start_shimmy() -> void:
+	idle_timer = 0.0
+	var types: Array = []
+	for r in ROWS:
+		for c in COLS:
+			var b = grid[r][c]
+			if b != null and b.bug_type not in types:
+				types.append(b.bug_type)
+	if types.is_empty():
+		return
+	var t: int = types[randi() % types.size()]
+	var group: Array = []
+	for r in ROWS:
+		for c in COLS:
+			var b = grid[r][c]
+			if b != null and b.bug_type == t:
+				group.append(b)
+	if group.is_empty():
+		return
+	shimmy_active = true
+	var tw := create_tween()
+	shimmy_tween = tw
+	tw.finished.connect(_on_shimmy_finished)
+	for i in range(6):
+		tw.set_parallel(true)
+		for b in group:
+			tw.tween_property(b, "rotation", 0.22 if i % 2 == 0 else -0.22, 0.07)
+		tw.set_parallel(false)
+	tw.set_parallel(true)
+	for b in group:
+		tw.tween_property(b, "rotation", 0.0, 0.05)
+
+
+func _on_shimmy_finished() -> void:
+	shimmy_active = false
+	shimmy_tween = null
+
+
+func _stop_shimmy() -> void:
+	if shimmy_tween != null and shimmy_tween.is_valid():
+		shimmy_tween.kill()
+	shimmy_tween = null
+	if shimmy_active:
+		shimmy_active = false
+		for r in ROWS:
+			for c in COLS:
+				var b = grid[r][c]
+				if b != null:
+					b.rotation = 0.0
 
 
 func _on_title_bug() -> void:
