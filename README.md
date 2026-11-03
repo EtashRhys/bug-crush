@@ -26,7 +26,7 @@ Play it live: https://ucii.sportgen-ai.com/bug-crush/
 - Share buttons below the board: Email Score, and Post to X (shares a
   screenshot of the board plus your score).
 - Golden scarab bomb: every 5,000 points a random bug turns into a golden
-  scarab. Tap it (or drag from it) to detonate a 3x3 blast — every bug in
+  scarab. Tap it (or drag from it) to detonate a 5x5 blast — every bug in
   the radius pops for normal points plus a +250 bomb bonus, then gravity
   refills and cascades resolve. Scarabs never match and can't be swapped;
   Shuffle just relocates them.

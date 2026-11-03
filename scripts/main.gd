@@ -752,8 +752,8 @@ func _detonate(cell_pos: Vector2i) -> void:
 	_deselect()
 	_stop_shimmy()
 	var cells: Array = []
-	for r in range(max(0, cell_pos.y - 1), min(ROWS, cell_pos.y + 2)):
-		for c in range(max(0, cell_pos.x - 1), min(COLS, cell_pos.x + 2)):
+	for r in range(max(0, cell_pos.y - 2), min(ROWS, cell_pos.y + 3)):
+		for c in range(max(0, cell_pos.x - 2), min(COLS, cell_pos.x + 3)):
 			if grid[r][c] != null:
 				cells.append(Vector2i(c, r))
 	var gained := cells.size() * 10 + SCARAB_BONUS
