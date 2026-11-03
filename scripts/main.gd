@@ -44,8 +44,10 @@ var title_col := Color(0.65, 0.95, 0.7)
 var title_bug_active := false
 var title_pulse: Tween
 var idle_timer := 0.0
-var shimmy_tween: Tween
 var shimmy_active := false
+var shimmy_group: Array = []
+var shimmy_origs: Array = []
+var shimmy_elapsed := 0.0
 const IDLE_AFTER := 3.0
 var smash_stream := preload("res://audio/smash.wav")
 const THRESHOLDS := [1500, 4000, 7500, 12000]
@@ -375,7 +377,10 @@ func _cell_at(pos: Vector2) -> Vector2i:
 
 
 func _process(delta: float) -> void:
-	if busy or shimmy_active or size.x > size.y:
+	if shimmy_active:
+		_shimmy_step(delta)
+		return
+	if busy or size.x > size.y:
 		return
 	idle_timer += delta
 	if idle_timer >= IDLE_AFTER:
@@ -678,50 +683,41 @@ func _start_shimmy() -> void:
 	if types.is_empty():
 		return
 	var t: int = types[randi() % types.size()]
-	var group: Array = []
-	var origs: Array = []
+	shimmy_group = []
+	shimmy_origs = []
 	for r in ROWS:
 		for c in COLS:
 			var b = grid[r][c]
 			if b != null and b.bug_type == t:
-				group.append(b)
-				origs.append(b.position)
-	if group.is_empty():
+				shimmy_group.append(b)
+				shimmy_origs.append(b.position)
+	if shimmy_group.is_empty():
 		return
 	shimmy_active = true
-	var tw := create_tween()
-	shimmy_tween = tw
-	tw.finished.connect(_on_shimmy_finished)
-	for i in range(6):
-		tw.set_parallel(true)
-		for j in group.size():
-			var b = group[j]
-			tw.tween_property(b, "rotation", 0.45 if i % 2 == 0 else -0.45, 0.09)
-			tw.tween_property(b, "position", Vector2(origs[j].x, origs[j].y - 12) if i % 2 == 0 else origs[j], 0.09)
-		tw.set_parallel(false)
-	tw.set_parallel(true)
-	for j in group.size():
-		tw.tween_property(group[j], "rotation", 0.0, 0.05)
-		tw.tween_property(group[j], "position", origs[j], 0.05)
+	shimmy_elapsed = 0.0
 
 
-func _on_shimmy_finished() -> void:
-	shimmy_active = false
-	shimmy_tween = null
+func _shimmy_step(delta: float) -> void:
+	shimmy_elapsed += delta
+	var s := sin(shimmy_elapsed * 55.0)
+	for i in shimmy_group.size():
+		var b = shimmy_group[i]
+		b.rotation = s * 0.35
+		b.position.x = shimmy_origs[i].x + s * 7.0
+	if shimmy_elapsed >= 1.2:
+		_stop_shimmy()
+		idle_timer = 0.0
 
 
 func _stop_shimmy() -> void:
-	if shimmy_tween != null and shimmy_tween.is_valid():
-		shimmy_tween.kill()
-	shimmy_tween = null
 	if shimmy_active:
+		for i in shimmy_group.size():
+			shimmy_group[i].rotation = 0.0
+			shimmy_group[i].position = shimmy_origs[i]
+		shimmy_group = []
+		shimmy_origs = []
 		shimmy_active = false
-		for r in ROWS:
-			for c in COLS:
-				var b = grid[r][c]
-				if b != null:
-					b.rotation = 0.0
-					b.position = _cell_pos(r, c)
+		shimmy_elapsed = 0.0
 
 
 func _on_title_bug() -> void:
