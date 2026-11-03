@@ -126,7 +126,10 @@ func _beacon(event: String, level: int = -1, kind: String = "") -> void:
 		body["level"] = level
 	if kind != "":
 		body["kind"] = kind
-	if http.request("/bug-crush-track/beacon",
+	# Absolute URL on purpose: Godot's web HTTP stack parses a host out
+	# of the URL, so a relative path never leaves the browser (raw
+	# beacon hits stayed 0 across two confirmed full game loads).
+	if http.request("https://ucii.sportgen-ai.com/bug-crush-track/beacon",
 			["Content-Type: application/json"],
 			HTTPClient.METHOD_POST, JSON.stringify(body)) != OK:
 		http.queue_free()

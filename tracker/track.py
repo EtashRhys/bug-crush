@@ -53,6 +53,8 @@ def load_data():
         data["totals"].setdefault("bombs", 0)
         for day in data["days"].values():
             day.setdefault("bombs", 0)
+        # diagnostic only: every beacon POST, before bot filtering
+        data.setdefault("raw", {"total": 0, "days": {}})
         return data
     except (OSError, ValueError):
         return {"totals": blank_day(), "days": {}}
@@ -63,6 +65,16 @@ def save_data(data):
     with open(tmp, "w") as f:
         json.dump(data, f, indent=1, sort_keys=True)
     os.replace(tmp, DATA_FILE)
+
+
+def record_hit():
+    """Count one raw beacon POST, before any bot filtering."""
+    today = date.today().isoformat()
+    with LOCK:
+        data = load_data()
+        data["raw"]["total"] += 1
+        data["raw"]["days"][today] = data["raw"]["days"].get(today, 0) + 1
+        save_data(data)
 
 
 def record(event, level=None, kind=None):
@@ -105,6 +117,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             body = {}
         event = body.get("event")
+        record_hit()
         if event in ("load", "play", "level", "share", "bomb") and not self._is_bot():
             record(event, body.get("level"), body.get("kind"))
         self.send_response(204)
@@ -147,6 +160,7 @@ margin:20px}table{border-collapse:collapse}td,th{border:1px solid #444;
 padding:6px 10px}h1{color:#7CFC00}</style></head><body>
 <h1>Bug Crush stats</h1>
 <p>Aggregate only. No IPs, cookies, or player identities are collected.</p>
+<p>Raw beacon hits (including bot-filtered): <b>%d</b></p>
 <h2>Totals</h2>
 <p>Loads: <b>%d</b> &nbsp; Plays: <b>%d</b> &nbsp;
 Shares by email: <b>%d</b> &nbsp; Shares to X: <b>%d</b> &nbsp;
@@ -156,6 +170,7 @@ Level-ups: %s</p>
 <table><tr><th>Day</th><th>Loads</th><th>Plays</th>
 <th>Email shares</th><th>X shares</th><th>Bombs</th><th>Level-ups</th></tr>
 %s</table></body></html>""" % (
+                data.get("raw", {}).get("total", 0),
                 totals["loads"], totals["plays"],
                 totals["shares_email"], totals["shares_x"],
                 totals.get("bombs", 0),
