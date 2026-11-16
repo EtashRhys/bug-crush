@@ -3,7 +3,9 @@ extends Control
 # Bug Crush: 8x8 match-3. Drag a bug onto a neighbour (or tap two
 # neighbours) to swap. 3+ in a row or column pop with a bounce, the bugs
 # above fall down, new bugs drop in, and matches chain into combos.
-# Shuffle button rescues a board with no moves left.
+# Shuffle button: 2 per level, plus a free rescue shuffle when the
+# board genuinely has no possible moves left (so a dead board can
+# never soft-lock, but spamming Shuffle for free matches is closed).
 
 const COLS := 8
 const ROWS := 8
@@ -11,6 +13,7 @@ const NTYPES := 6
 const SCARAB := 6
 const SCARAB_EVERY := 5000
 const SCARAB_BONUS := 250
+const SHUFFLES_PER_LEVEL := 2
 
 var BugScript := preload("res://scripts/bug.gd")
 
@@ -42,6 +45,7 @@ var rotate_sub: Label
 var game_font: Font
 var sfx: AudioStreamPlayer
 var current_level := 1
+var shuffles_left := SHUFFLES_PER_LEVEL
 var next_scarab_at := SCARAB_EVERY
 var _play_beaconed := false
 var banner_label: Label
@@ -57,7 +61,7 @@ const IDLE_AFTER := 3.0
 var smash_stream := preload("res://audio/smash.wav")
 const THRESHOLDS := [1500, 4000, 7500, 12000]
 const THEMES := [
-	[Color(0, 0, 0), Color(0.6, 0.82, 0.55), Color(0.78, 0.92, 0.72), Color(0.72, 0.89, 0.66)],
+	[Color(0.12, 0.06, 0.25), Color(0.6, 0.82, 0.55), Color(0.78, 0.92, 0.72), Color(0.72, 0.89, 0.66)],
 	[Color(0.02, 0.02, 0.14), Color(0.35, 0.55, 0.85), Color(0.55, 0.70, 0.90), Color(0.48, 0.62, 0.82)],
 	[Color(0.14, 0.02, 0.14), Color(0.62, 0.42, 0.85), Color(0.76, 0.62, 0.90), Color(0.68, 0.54, 0.82)],
 	[Color(0.14, 0.03, 0.02), Color(0.85, 0.45, 0.30), Color(0.90, 0.66, 0.50), Color(0.82, 0.58, 0.42)],
@@ -70,7 +74,7 @@ const THEMES := [
 	[Color(0.14, 0.05, 0.03), Color(0.95, 0.55, 0.40), Color(0.98, 0.75, 0.60), Color(0.90, 0.67, 0.52)],
 	[Color(0.06, 0.06, 0.08), Color(0.75, 0.75, 0.80), Color(0.88, 0.88, 0.92), Color(0.80, 0.80, 0.84)],
 ]
-var bg_col := Color(0, 0, 0)
+var bg_col := Color(0.12, 0.06, 0.25)
 var frame_col := Color(0.6, 0.82, 0.55)
 var chk_a := Color(0.78, 0.92, 0.72)
 var chk_b := Color(0.72, 0.89, 0.66)
@@ -194,9 +198,9 @@ func _build_labels() -> void:
 	sel_ring.visible = false
 	add_child(sel_ring)
 	shuffle_btn = Button.new()
-	shuffle_btn.text = "Shuffle"
-	shuffle_btn.position = Vector2(size.x - 150, 30)
-	shuffle_btn.size = Vector2(130, 52)
+	shuffle_btn.text = "Shuffle (%d)" % shuffles_left
+	shuffle_btn.position = Vector2(size.x - 190, 30)
+	shuffle_btn.size = Vector2(170, 52)
 	if game_font != null:
 		shuffle_btn.add_theme_font_override("font", game_font)
 		shuffle_btn.add_theme_font_size_override("font_size", 28)
@@ -311,7 +315,7 @@ func _on_resize() -> void:
 	best_label.position = Vector2(0, 24)
 	hint_label.position = Vector2(20, origin.y - 216)
 	msg_label.position = Vector2(20, origin.y - 216)
-	shuffle_btn.position = Vector2(size.x - 150, 30)
+	shuffle_btn.position = Vector2(size.x - 190, 30)
 	var share_y := origin.y + cell * ROWS + 24
 	var btn_w := int(min(190, (size.x - 48) / 2.0))
 	var pair_w := btn_w * 2 + 16
@@ -587,6 +591,8 @@ func _resolve() -> void:
 		var nl := _level_for_score(score)
 		if nl > current_level:
 			current_level = nl
+			shuffles_left = SHUFFLES_PER_LEVEL
+			_update_shuffle_btn()
 			_beacon("level", nl)
 			await _celebrate_level(nl)
 	while score >= next_scarab_at:
@@ -918,6 +924,42 @@ func _gravity() -> void:
 	await tw.finished
 
 
+func _update_shuffle_btn() -> void:
+	if shuffle_btn != null:
+		shuffle_btn.text = "Shuffle (%d)" % shuffles_left
+
+
+func _has_possible_move() -> bool:
+	# A scarab on the board is always an action (tap to detonate).
+	for r in ROWS:
+		for c in COLS:
+			var b = grid[r][c]
+			if b != null and b.bug_type == SCARAB:
+				return true
+	# Try every adjacent swap: if any swap makes a match, a move exists.
+	var dirs: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1)]
+	for r in ROWS:
+		for c in COLS:
+			for d in dirs:
+				var nr := r + d.y
+				var nc := c + d.x
+				if nr >= ROWS or nc >= COLS:
+					continue
+				var a = grid[r][c]
+				var b = grid[nr][nc]
+				if a == null or b == null:
+					continue
+				var tmp: int = a.bug_type
+				a.bug_type = b.bug_type
+				b.bug_type = tmp
+				var has := not _find_matches().is_empty()
+				b.bug_type = a.bug_type
+				a.bug_type = tmp
+				if has:
+					return true
+	return false
+
+
 func _on_shuffle() -> void:
 	if busy:
 		return
@@ -925,6 +967,14 @@ func _on_shuffle() -> void:
 		for c in COLS:
 			if grid[r][c] == null:
 				return
+	# Free rescue only when the board is genuinely dead. Otherwise a
+	# shuffle costs one of this level's allowance; at 0 it is refused.
+	if _has_possible_move():
+		if shuffles_left <= 0:
+			_show_msg("No shuffles left this level")
+			return
+		shuffles_left -= 1
+		_update_shuffle_btn()
 	busy = true
 	hint_label.visible = false
 	_deselect()
